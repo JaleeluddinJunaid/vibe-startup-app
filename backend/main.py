@@ -38,6 +38,6 @@ def get_items():
 
 # POST endpoint: saves a new item
 @app.post("/items")
-def create_item(item: Item):
+def get_items():
     response = supabase.table("items").select("*").execute()
     return response.data
