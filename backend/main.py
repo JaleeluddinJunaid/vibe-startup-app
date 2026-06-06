@@ -39,7 +39,5 @@ def get_items():
 # POST endpoint: saves a new item
 @app.post("/items")
 def create_item(item: Item):
-    response = supabase.table("items").insert(
-        {"name": item.name, "description": item.description}
-    ).execute()
+    response = supabase.table("items").select("*").execute()
     return response.data
