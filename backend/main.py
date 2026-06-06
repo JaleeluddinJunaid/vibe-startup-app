@@ -20,9 +20,10 @@ app = FastAPI()
 # Allow your React frontend (running on a different port) to talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+)
 )
 
 # Describes the shape of data we expect when saving an item
@@ -43,4 +44,3 @@ def create_item(item: Item):
         {"name": item.name, "description": item.description}
     ).execute()
     return response.data
-    
