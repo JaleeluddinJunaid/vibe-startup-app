@@ -3,6 +3,12 @@ import { useState, useEffect } from "react";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function App() {
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [loginName, setLoginName] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginError, setLoginError] = useState("");
+
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -10,8 +16,30 @@ function App() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchItems();
-  }, []);
+    if (loggedIn) fetchItems();
+  }, [loggedIn]);
+
+  function handleLogin(event) {
+    event.preventDefault();
+    if (!loginName.trim() || !loginEmail.trim()) {
+      setLoginError("Please enter both your name and email.");
+      return;
+    }
+    if (!loginEmail.includes("@")) {
+      setLoginError("Please enter a valid email address.");
+      return;
+    }
+    setUserName(loginName.trim());
+    setLoggedIn(true);
+    setLoginError("");
+  }
+
+  function handleLogout() {
+    setLoggedIn(false);
+    setLoginName("");
+    setLoginEmail("");
+    setUserName("");
+  }
 
   async function fetchItems() {
     try {
@@ -62,6 +90,7 @@ function App() {
           padding: 48px 24px 80px;
         }
         .shell { max-width: 880px; margin: 0 auto; }
+        .narrow { max-width: 440px; margin: 8vh auto 0; }
 
         .brandrow {
           display: flex; align-items: center; gap: 10px;
@@ -72,60 +101,50 @@ function App() {
 
         .hero { margin: 22px 0 44px; }
         .hero h1 {
-          font-family: 'Fraunces', serif;
-          font-weight: 800;
-          font-size: clamp(38px, 6vw, 66px);
-          line-height: 1.02;
-          letter-spacing: -0.02em;
-          max-width: 16ch;
-          color: #fbf9f4;
+          font-family: 'Fraunces', serif; font-weight: 800;
+          font-size: clamp(34px, 6vw, 60px); line-height: 1.02;
+          letter-spacing: -0.02em; max-width: 16ch; color: #fbf9f4;
         }
         .hero h1 em { font-style: italic; color: #ff7a52; }
-        .hero p {
-          margin-top: 18px; max-width: 48ch;
-          font-size: 17px; line-height: 1.6; color: #b3 aeA3;
-          color: #b3aea3;
-        }
+        .hero p { margin-top: 18px; max-width: 48ch; font-size: 17px; line-height: 1.6; color: #b3aea3; }
 
         .panel {
-          background: #1f1d17;
-          border: 1px solid #36322a;
-          border-radius: 18px;
-          padding: 26px;
-          box-shadow: 0 24px 50px -30px rgba(0,0,0,0.8);
+          background: #1f1d17; border: 1px solid #36322a; border-radius: 18px;
+          padding: 26px; box-shadow: 0 24px 50px -30px rgba(0,0,0,0.8);
         }
-        .panel h2 {
-          font-family: 'Fraunces', serif; font-weight: 600;
-          font-size: 22px; margin-bottom: 4px; color: #fbf9f4;
-        }
+        .panel h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; margin-bottom: 4px; color: #fbf9f4; }
         .panel .sub { color: #8f897c; font-size: 14px; margin-bottom: 20px; }
 
         .field { margin-bottom: 14px; }
         .field label {
-          display: block; font-size: 12px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 0.05em;
-          color: #9b958a; margin-bottom: 6px;
+          display: block; font-size: 12px; font-weight: 600; text-transform: uppercase;
+          letter-spacing: 0.05em; color: #9b958a; margin-bottom: 6px;
         }
         .field input {
-          width: 100%; padding: 13px 15px;
-          border: 1px solid #3a362d; border-radius: 11px;
-          background: #14130f; font-family: inherit; font-size: 15px;
-          color: #f4f1ea; transition: border-color .15s, box-shadow .15s;
+          width: 100%; padding: 13px 15px; border: 1px solid #3a362d; border-radius: 11px;
+          background: #14130f; font-family: inherit; font-size: 15px; color: #f4f1ea;
+          transition: border-color .15s, box-shadow .15s;
         }
         .field input::placeholder { color: #6b665b; }
-        .field input:focus {
-          outline: none; border-color: #ff7a52;
-          box-shadow: 0 0 0 3px rgba(255,122,82,0.2);
-        }
+        .field input:focus { outline: none; border-color: #ff7a52; box-shadow: 0 0 0 3px rgba(255,122,82,0.2); }
+
         .submit {
-          width: 100%; margin-top: 6px; padding: 14px;
-          background: #ff7a52; color: #14130f;
-          border: none; border-radius: 11px;
-          font-family: inherit; font-size: 15px; font-weight: 600;
+          width: 100%; margin-top: 6px; padding: 14px; background: #ff7a52; color: #14130f;
+          border: none; border-radius: 11px; font-family: inherit; font-size: 15px; font-weight: 600;
           cursor: pointer; transition: transform .12s, background .2s;
         }
         .submit:hover { background: #ff9270; transform: translateY(-1px); }
         .submit:disabled { opacity: .6; cursor: default; transform: none; }
+
+        .err { color: #ff8f6b; font-size: 14px; margin-top: 10px; }
+
+        .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .greet { font-size: 14px; color: #b3aea3; }
+        .logout {
+          background: transparent; color: #9b958a; border: 1px solid #36322a;
+          border-radius: 9px; padding: 7px 14px; font-family: inherit; font-size: 13px; cursor: pointer;
+        }
+        .logout:hover { border-color: #ff7a52; color: #ff7a52; }
 
         .grid { margin-top: 40px; }
         .gridhead {
@@ -137,86 +156,150 @@ function App() {
 
         .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
         .card {
-          background: #1f1d17; border: 1px solid #36322a; border-radius: 15px;
-          padding: 20px; animation: rise .4s ease both;
-          transition: border-color .15s, transform .15s;
+          background: #1f1d17; border: 1px solid #36322a; border-radius: 15px; padding: 20px;
+          animation: rise .4s ease both; transition: border-color .15s, transform .15s;
         }
         .card:hover { border-color: #ff7a52; transform: translateY(-2px); }
         .avatar {
-          width: 42px; height: 42px; border-radius: 12px;
-          background: #ff7a52; color: #14130f;
+          width: 42px; height: 42px; border-radius: 12px; background: #ff7a52; color: #14130f;
           display: flex; align-items: center; justify-content: center;
-          font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px;
-          margin-bottom: 14px;
+          font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; margin-bottom: 14px;
         }
         .card .nm { font-weight: 600; font-size: 17px; margin-bottom: 4px; color: #fbf9f4; }
         .card .ds { font-size: 14px; color: #a9a397; line-height: 1.5; }
 
         .empty, .loading { text-align: center; color: #8f897c; padding: 40px 0; font-size: 15px; }
 
+        .security {
+          margin-top: 48px; background: #191712; border: 1px solid #36322a;
+          border-radius: 16px; padding: 24px;
+        }
+        .security h4 {
+          font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px;
+          color: #fbf9f4; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+        }
+        .shield { color: #ff7a52; }
+        .security ul { list-style: none; }
+        .security li {
+          font-size: 14px; color: #b3aea3; line-height: 1.5; padding: 7px 0 7px 22px;
+          position: relative; border-bottom: 1px solid #211f19;
+        }
+        .security li:last-child { border-bottom: none; }
+        .security li::before { content: "✓"; position: absolute; left: 0; color: #ff7a52; font-weight: 700; }
+
+        .privacy-note { font-size: 13px; color: #6b665b; margin-top: 12px; }
+
         @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       `}</style>
 
-      <div className="shell">
-        <div className="brandrow"><span className="dot"></span> Designer Finder — Melbourne</div>
+      {!loggedIn ? (
+        // ---------- LOGIN / WELCOME SCREEN ----------
+        <div className="narrow">
+          <div className="brandrow"><span className="dot"></span> Designer Finder — Melbourne</div>
+          <header className="hero" style={{ margin: "20px 0 28px" }}>
+            <h1>Welcome to <em>Designer Finder</em></h1>
+            <p>Tell us who you are to get started browsing Melbourne's freelance design talent.</p>
+          </header>
 
-        <header className="hero">
-          <h1><em>Designer Finder</em> — where Melbourne business meets local talent.</h1>
-          <p>
-            A curated directory connecting Melbourne's freelance graphic
-            designers with small businesses who need great work, close to home.
-          </p>
-        </header>
-
-        <div className="panel">
-          <h2>Join the directory</h2>
-          <div className="sub">Add a designer's profile to the network.</div>
-          <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label>Designer name</label>
-              <input
-                placeholder="e.g. Sarah Chen"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+          <div className="panel">
+            <h2>Get started</h2>
+            <div className="sub">Enter your details to access the directory.</div>
+            <form onSubmit={handleLogin}>
+              <div className="field">
+                <label>Your name</label>
+                <input
+                  placeholder="e.g. Alex Morgan"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label>Email</label>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                />
+              </div>
+              <button className="submit" type="submit">Enter the directory</button>
+              {loginError && <div className="err">{loginError}</div>}
+            </form>
+            <div className="privacy-note">
+              🔒 Your details stay in your browser for this session only — they are never
+              sent to our servers, stored, or shared.
             </div>
-            <div className="field">
-              <label>Specialty &amp; suburb</label>
-              <input
-                placeholder="e.g. Logo &amp; branding — Fitzroy"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            <button className="submit" type="submit" disabled={submitting}>
-              {submitting ? "Adding…" : "Add to directory"}
-            </button>
-          </form>
+          </div>
         </div>
+      ) : (
+        // ---------- MAIN APP ----------
+        <div className="shell">
+          <div className="topbar">
+            <div className="brandrow"><span className="dot"></span> Designer Finder — Melbourne</div>
+            <button className="logout" onClick={handleLogout}>Log out</button>
+          </div>
+          <div className="greet" style={{ marginTop: 8 }}>Signed in as {userName}</div>
 
-        <section className="grid">
-          <div className="gridhead">
-            <h3>The directory</h3>
-            <span className="count">{items.length} designer{items.length !== 1 ? "s" : ""}</span>
+          <header className="hero">
+            <h1><em>Designer Finder</em> — where Melbourne business meets local talent.</h1>
+            <p>
+              A curated directory connecting Melbourne's freelance graphic
+              designers with small businesses who need great work, close to home.
+            </p>
+          </header>
+
+          <div className="panel">
+            <h2>Join the directory</h2>
+            <div className="sub">Add a designer's profile to the network.</div>
+            <form onSubmit={handleSubmit}>
+              <div className="field">
+                <label>Designer name</label>
+                <input placeholder="e.g. Sarah Chen" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Specialty &amp; suburb</label>
+                <input placeholder="e.g. Logo &amp; branding — Fitzroy" value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <button className="submit" type="submit" disabled={submitting}>
+                {submitting ? "Adding…" : "Add to directory"}
+              </button>
+            </form>
           </div>
 
-          {loading ? (
-            <div className="loading">Loading directory…</div>
-          ) : items.length === 0 ? (
-            <div className="empty">No designers yet — add the first one above.</div>
-          ) : (
-            <div className="cards">
-              {items.map((item) => (
-                <div className="card" key={item.id ?? item.name}>
-                  <div className="avatar">{(item.name || "?").charAt(0).toUpperCase()}</div>
-                  <div className="nm">{item.name}</div>
-                  <div className="ds">{item.description}</div>
-                </div>
-              ))}
+          <section className="grid">
+            <div className="gridhead">
+              <h3>The directory</h3>
+              <span className="count">{items.length} designer{items.length !== 1 ? "s" : ""}</span>
             </div>
-          )}
-        </section>
-      </div>
+            {loading ? (
+              <div className="loading">Loading directory…</div>
+            ) : items.length === 0 ? (
+              <div className="empty">No designers yet — add the first one above.</div>
+            ) : (
+              <div className="cards">
+                {items.map((item) => (
+                  <div className="card" key={item.id ?? item.name}>
+                    <div className="avatar">{(item.name || "?").charAt(0).toUpperCase()}</div>
+                    <div className="nm">{item.name}</div>
+                    <div className="ds">{item.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="security">
+            <h4><span className="shield">🛡</span> Security &amp; Privacy</h4>
+            <ul>
+              <li>We don't collect or store your personal login details — they stay in your browser for this session only.</li>
+              <li>All traffic is encrypted over HTTPS between your browser, our app, and the database.</li>
+              <li>Database credentials and API keys are stored as secure environment variables, never exposed in the app or its code.</li>
+              <li>We only store the public designer directory entries that users choose to publish — nothing more.</li>
+            </ul>
+            <div className="privacy-note">Designer Finder is built privacy-first: minimal data, no tracking, no selling.</div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
