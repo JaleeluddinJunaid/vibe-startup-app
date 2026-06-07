@@ -2,6 +2,27 @@ import { useState, useEffect } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// --- helpers to generate consistent fake contact info from a name ---
+function slug(name) {
+  return (name || "designer").toLowerCase().replace(/[^a-z]+/g, ".").replace(/^\.|\.$/g, "");
+}
+function fakeEmail(name) {
+  return `${slug(name)}@designerfinder.com.au`;
+}
+function fakePhone(name) {
+  let h = 0;
+  for (let i = 0; i < (name || "x").length; i++) h = (h * 31 + name.charCodeAt(i)) % 1000000;
+  const a = String(100 + (h % 900)).padStart(3, "0");
+  const b = String(100 + ((h * 7) % 900)).padStart(3, "0");
+  return `04${String(h % 100).padStart(2, "0")} ${a} ${b}`;
+}
+function fakeBio(name, description) {
+  const first = (name || "This designer").split(" ")[0];
+  return `${first} is a Melbourne-based freelance graphic designer specialising in ${
+    description || "design work"
+  }. With a sharp eye for detail and a collaborative approach, ${first} partners with local small businesses to deliver standout visual work — from first concept to final files.`;
+}
+
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
@@ -14,6 +35,8 @@ function App() {
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const [selected, setSelected] = useState(null); // the designer whose profile is open
 
   useEffect(() => {
     if (loggedIn) fetchItems();
@@ -39,6 +62,7 @@ function App() {
     setLoginName("");
     setLoginEmail("");
     setUserName("");
+    setSelected(null);
   }
 
   async function fetchItems() {
@@ -81,29 +105,24 @@ function App() {
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         .page {
-          min-height: 100vh;
-          background: #14130f;
+          min-height: 100vh; background: #14130f;
           background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0);
-          background-size: 24px 24px;
-          font-family: 'DM Sans', sans-serif;
-          color: #f4f1ea;
+          background-size: 24px 24px; font-family: 'DM Sans', sans-serif; color: #f4f1ea;
           padding: 48px 24px 80px;
         }
         .shell { max-width: 880px; margin: 0 auto; }
         .narrow { max-width: 440px; margin: 8vh auto 0; }
 
         .brandrow {
-          display: flex; align-items: center; gap: 10px;
-          font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-          font-size: 13px; color: #ff7a52;
+          display: flex; align-items: center; gap: 10px; font-weight: 600;
+          letter-spacing: 0.06em; text-transform: uppercase; font-size: 13px; color: #ff7a52;
         }
         .dot { width: 9px; height: 9px; border-radius: 50%; background: #ff7a52; box-shadow: 0 0 12px #ff7a52; }
 
         .hero { margin: 22px 0 44px; }
         .hero h1 {
-          font-family: 'Fraunces', serif; font-weight: 800;
-          font-size: clamp(34px, 6vw, 60px); line-height: 1.02;
-          letter-spacing: -0.02em; max-width: 16ch; color: #fbf9f4;
+          font-family: 'Fraunces', serif; font-weight: 800; font-size: clamp(34px, 6vw, 60px);
+          line-height: 1.02; letter-spacing: -0.02em; max-width: 16ch; color: #fbf9f4;
         }
         .hero h1 em { font-style: italic; color: #ff7a52; }
         .hero p { margin-top: 18px; max-width: 48ch; font-size: 17px; line-height: 1.6; color: #b3aea3; }
@@ -141,8 +160,8 @@ function App() {
         .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
         .greet { font-size: 14px; color: #b3aea3; }
         .logout {
-          background: transparent; color: #9b958a; border: 1px solid #36322a;
-          border-radius: 9px; padding: 7px 14px; font-family: inherit; font-size: 13px; cursor: pointer;
+          background: transparent; color: #9b958a; border: 1px solid #36322a; border-radius: 9px;
+          padding: 7px 14px; font-family: inherit; font-size: 13px; cursor: pointer;
         }
         .logout:hover { border-color: #ff7a52; color: #ff7a52; }
 
@@ -157,7 +176,7 @@ function App() {
         .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
         .card {
           background: #1f1d17; border: 1px solid #36322a; border-radius: 15px; padding: 20px;
-          animation: rise .4s ease both; transition: border-color .15s, transform .15s;
+          animation: rise .4s ease both; transition: border-color .15s, transform .15s; cursor: pointer;
         }
         .card:hover { border-color: #ff7a52; transform: translateY(-2px); }
         .avatar {
@@ -167,16 +186,16 @@ function App() {
         }
         .card .nm { font-weight: 600; font-size: 17px; margin-bottom: 4px; color: #fbf9f4; }
         .card .ds { font-size: 14px; color: #a9a397; line-height: 1.5; }
+        .viewlink { margin-top: 12px; font-size: 13px; color: #ff7a52; font-weight: 600; }
 
         .empty, .loading { text-align: center; color: #8f897c; padding: 40px 0; font-size: 15px; }
 
         .security {
-          margin-top: 48px; background: #191712; border: 1px solid #36322a;
-          border-radius: 16px; padding: 24px;
+          margin-top: 48px; background: #191712; border: 1px solid #36322a; border-radius: 16px; padding: 24px;
         }
         .security h4 {
-          font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px;
-          color: #fbf9f4; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+          font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; color: #fbf9f4;
+          margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
         }
         .shield { color: #ff7a52; }
         .security ul { list-style: none; }
@@ -186,41 +205,57 @@ function App() {
         }
         .security li:last-child { border-bottom: none; }
         .security li::before { content: "✓"; position: absolute; left: 0; color: #ff7a52; font-weight: 700; }
-
         .privacy-note { font-size: 13px; color: #6b665b; margin-top: 12px; }
+
+        /* profile page */
+        .back {
+          background: transparent; color: #9b958a; border: 1px solid #36322a; border-radius: 9px;
+          padding: 8px 16px; font-family: inherit; font-size: 14px; cursor: pointer; margin-bottom: 28px;
+        }
+        .back:hover { border-color: #ff7a52; color: #ff7a52; }
+        .profile-head { display: flex; align-items: center; gap: 20px; margin-bottom: 28px; }
+        .bigavatar {
+          width: 84px; height: 84px; border-radius: 20px; background: #ff7a52; color: #14130f;
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Fraunces', serif; font-weight: 700; font-size: 38px; flex-shrink: 0;
+        }
+        .profile-head .pname { font-family: 'Fraunces', serif; font-weight: 700; font-size: 32px; color: #fbf9f4; }
+        .profile-head .pspec { font-size: 16px; color: #ff7a52; margin-top: 4px; }
+        .section-label {
+          font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+          color: #8f897c; margin: 26px 0 10px;
+        }
+        .bio { font-size: 16px; line-height: 1.65; color: #cfcabd; }
+        .contact-row {
+          display: flex; align-items: center; gap: 12px; padding: 14px 0;
+          border-bottom: 1px solid #2a271f; font-size: 15px; color: #e8e4da;
+        }
+        .contact-row:last-child { border-bottom: none; }
+        .clabel { color: #8f897c; width: 80px; flex-shrink: 0; font-size: 14px; }
+        .badge { display: inline-block; background: #2a271f; color: #9b958a; border-radius: 6px; padding: 3px 9px; font-size: 12px; margin-right: 6px; margin-top: 8px; }
 
         @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       `}</style>
 
       {!loggedIn ? (
-        // ---------- LOGIN / WELCOME SCREEN ----------
+        // ---------- LOGIN SCREEN ----------
         <div className="narrow">
           <div className="brandrow"><span className="dot"></span> Designer Finder — Melbourne</div>
           <header className="hero" style={{ margin: "20px 0 28px" }}>
             <h1>Welcome to <em>Designer Finder</em></h1>
             <p>Tell us who you are to get started browsing Melbourne's freelance design talent.</p>
           </header>
-
           <div className="panel">
             <h2>Get started</h2>
             <div className="sub">Enter your details to access the directory.</div>
             <form onSubmit={handleLogin}>
               <div className="field">
                 <label>Your name</label>
-                <input
-                  placeholder="e.g. Alex Morgan"
-                  value={loginName}
-                  onChange={(e) => setLoginName(e.target.value)}
-                />
+                <input placeholder="e.g. Alex Morgan" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
               </div>
               <div className="field">
                 <label>Email</label>
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                />
+                <input type="email" placeholder="you@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
               </div>
               <button className="submit" type="submit">Enter the directory</button>
               {loginError && <div className="err">{loginError}</div>}
@@ -231,8 +266,44 @@ function App() {
             </div>
           </div>
         </div>
+      ) : selected ? (
+        // ---------- DESIGNER PROFILE PAGE ----------
+        <div className="shell">
+          <button className="back" onClick={() => setSelected(null)}>← Back to directory</button>
+          <div className="profile-head">
+            <div className="bigavatar">{(selected.name || "?").charAt(0).toUpperCase()}</div>
+            <div>
+              <div className="pname">{selected.name}</div>
+              <div className="pspec">{selected.description}</div>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="section-label">About</div>
+            <p className="bio">{fakeBio(selected.name, selected.description)}</p>
+
+            <div className="section-label">Skills</div>
+            <div>
+              <span className="badge">Branding</span>
+              <span className="badge">Logo design</span>
+              <span className="badge">Print</span>
+              <span className="badge">Illustration</span>
+              <span className="badge">Adobe Suite</span>
+            </div>
+
+            <div className="section-label">Contact</div>
+            <div className="contact-row"><span className="clabel">Email</span>{fakeEmail(selected.name)}</div>
+            <div className="contact-row"><span className="clabel">Phone</span>{fakePhone(selected.name)}</div>
+            <div className="contact-row"><span className="clabel">Location</span>Melbourne, VIC</div>
+            <div className="contact-row"><span className="clabel">Rate</span>From $75 / hour</div>
+          </div>
+
+          <div className="privacy-note" style={{ marginTop: 16 }}>
+            Contact details are shown to signed-in members only and are never indexed publicly.
+          </div>
+        </div>
       ) : (
-        // ---------- MAIN APP ----------
+        // ---------- MAIN DIRECTORY ----------
         <div className="shell">
           <div className="topbar">
             <div className="brandrow"><span className="dot"></span> Designer Finder — Melbourne</div>
@@ -242,10 +313,7 @@ function App() {
 
           <header className="hero">
             <h1><em>Designer Finder</em> — where Melbourne business meets local talent.</h1>
-            <p>
-              A curated directory connecting Melbourne's freelance graphic
-              designers with small businesses who need great work, close to home.
-            </p>
+            <p>A curated directory connecting Melbourne's freelance graphic designers with small businesses who need great work, close to home.</p>
           </header>
 
           <div className="panel">
@@ -278,10 +346,11 @@ function App() {
             ) : (
               <div className="cards">
                 {items.map((item) => (
-                  <div className="card" key={item.id ?? item.name}>
+                  <div className="card" key={item.id ?? item.name} onClick={() => setSelected(item)}>
                     <div className="avatar">{(item.name || "?").charAt(0).toUpperCase()}</div>
                     <div className="nm">{item.name}</div>
                     <div className="ds">{item.description}</div>
+                    <div className="viewlink">View profile →</div>
                   </div>
                 ))}
               </div>
