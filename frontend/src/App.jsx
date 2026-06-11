@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "./supabaseClient";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -24,45 +25,135 @@ function fakeBio(name, description) {
 }
 
 function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [userName, setUserName] = useState("");
-  const [loginName, setLoginName] = useState("");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginError, setLoginError] = useState("");
+  // ---------- auth state ----------
+  const [session, setSession] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
+  const [authMode, setAuthMode] = useState("register"); // "register" | "sent" | "login"
+  const [regName, setRegName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [info, setInfo] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+
+  // ---------- directory state ----------
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [selected, setSelected] = useState(null);
 
-  const [selected, setSelected] = useState(null); // the designer whose profile is open
+  // Restore an existing session on load + keep it in sync.
+  // When a user clicks the email confirmation link they're redirected back here,
+  // supabase-js picks up the session from the URL, and onAuthStateChange logs them in.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
-    if (loggedIn) fetchItems();
-  }, [loggedIn]);
+    if (session) fetchItems();
+  }, [session]);
 
-  function handleLogin(event) {
-    event.preventDefault();
-    if (!loginName.trim() || !loginEmail.trim()) {
-      setLoginError("Please enter both your name and email.");
-      return;
-    }
-    if (!loginEmail.includes("@")) {
-      setLoginError("Please enter a valid email address.");
-      return;
-    }
-    setUserName(loginName.trim());
-    setLoggedIn(true);
-    setLoginError("");
+  const userName =
+    session?.user?.user_metadata?.name || session?.user?.email || "there";
+
+  function resetAuthMessages() {
+    setAuthError("");
+    setInfo("");
   }
 
-  function handleLogout() {
-    setLoggedIn(false);
-    setLoginName("");
-    setLoginEmail("");
-    setUserName("");
+  // Registration: create the account -> Supabase emails a confirmation link.
+  async function handleRegister(event) {
+    event.preventDefault();
+    resetAuthMessages();
+    if (!regName.trim() || !email.trim() || !password) {
+      setAuthError("Please enter your name, email and password.");
+      return;
+    }
+    if (password.length < 6) {
+      setAuthError("Password must be at least 6 characters.");
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: { name: regName.trim() },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setAuthBusy(false);
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+    setAuthMode("sent");
+    setInfo(`We've emailed a confirmation link to ${email.trim()}. Click it to activate your account, then come back and log in.`);
+  }
+
+  async function handleResend() {
+    resetAuthMessages();
+    if (!email.trim()) {
+      setAuthError("Enter your email first.");
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setAuthBusy(false);
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+    setInfo(`Confirmation link re-sent to ${email.trim()}.`);
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    resetAuthMessages();
+    if (!email.trim() || !password) {
+      setAuthError("Enter your email and password.");
+      return;
+    }
+    setAuthBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    setAuthBusy(false);
+    if (error) {
+      // Account exists but the email link hasn't been clicked yet.
+      if (error.message.toLowerCase().includes("confirm")) {
+        setAuthMode("sent");
+        setInfo("Your email isn't confirmed yet. Check your inbox for the link, or tap \u201cResend link\u201d.");
+        return;
+      }
+      setAuthError(error.message);
+      return;
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
     setSelected(null);
+    setRegName("");
+    setEmail("");
+    setPassword("");
+    resetAuthMessages();
+    setAuthMode("register");
   }
 
   async function fetchItems() {
@@ -96,6 +187,8 @@ function App() {
       setSubmitting(false);
     }
   }
+
+  const loggedIn = !!session;
 
   return (
     <div className="page">
@@ -156,6 +249,28 @@ function App() {
         .submit:disabled { opacity: .6; cursor: default; transform: none; }
 
         .err { color: #ff8f6b; font-size: 14px; margin-top: 10px; }
+        .info { color: #8fd1a8; font-size: 14px; margin-top: 10px; line-height: 1.5; }
+
+        .authswitch { margin-top: 16px; font-size: 14px; color: #8f897c; text-align: center; }
+        .textlink {
+          background: none; border: none; color: #ff7a52; font-family: inherit; font-size: 14px;
+          font-weight: 600; cursor: pointer; padding: 0; text-decoration: underline;
+        }
+        .ghostbtn {
+          width: 100%; margin-top: 10px; padding: 12px; background: transparent; color: #9b958a;
+          border: 1px solid #36322a; border-radius: 11px; font-family: inherit; font-size: 14px;
+          cursor: pointer;
+        }
+        .ghostbtn:hover { border-color: #ff7a52; color: #ff7a52; }
+        .ghostbtn:disabled { opacity: .6; cursor: default; }
+
+        .mailicon { font-size: 40px; margin-bottom: 8px; }
+
+        .mfa-tag {
+          display: inline-flex; align-items: center; gap: 7px; background: #2a271f; color: #ffb999;
+          border: 1px solid #45382e; border-radius: 999px; padding: 5px 12px; font-size: 12px;
+          font-weight: 600; margin-bottom: 18px;
+        }
 
         .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
         .greet { font-size: 14px; color: #b3aea3; }
@@ -237,34 +352,113 @@ function App() {
         @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
       `}</style>
 
-      {!loggedIn ? (
-        // ---------- LOGIN SCREEN ----------
+      {!authReady ? (
+        // ---------- INITIAL SESSION CHECK ----------
+        <div className="narrow">
+          <div className="loading">Loading…</div>
+        </div>
+      ) : !loggedIn ? (
+        // ---------- AUTH SCREENS (register / sent / login) ----------
         <div className="narrow">
           <div className="brandrow"><span className="dot"></span> Designer Finder — Melbourne</div>
-          <header className="hero" style={{ margin: "20px 0 28px" }}>
-            <h1>Welcome to <em>Designer Finder</em></h1>
-            <p>Tell us who you are to get started browsing Melbourne's freelance design talent.</p>
-          </header>
-          <div className="panel">
-            <h2>Get started</h2>
-            <div className="sub">Enter your details to access the directory.</div>
-            <form onSubmit={handleLogin}>
-              <div className="field">
-                <label>Your name</label>
-                <input placeholder="e.g. Alex Morgan" value={loginName} onChange={(e) => setLoginName(e.target.value)} />
+
+          {authMode === "register" && (
+            <>
+              <header className="hero" style={{ margin: "20px 0 28px" }}>
+                <h1>Create your <em>Designer Finder</em> account</h1>
+                <p>Sign up to browse Melbourne's freelance design talent. We'll send a confirmation link to verify your email.</p>
+              </header>
+              <div className="panel">
+                <span className="mfa-tag">✉️ Email-verified sign up</span>
+                <h2>Sign up</h2>
+                <div className="sub">Enter your details to get started.</div>
+                <form onSubmit={handleRegister}>
+                  <div className="field">
+                    <label>Your name</label>
+                    <input placeholder="e.g. Alex Morgan" value={regName} onChange={(e) => setRegName(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Email</label>
+                    <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Password</label>
+                    <input type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  </div>
+                  <button className="submit" type="submit" disabled={authBusy}>
+                    {authBusy ? "Creating account…" : "Create account"}
+                  </button>
+                  {authError && <div className="err">{authError}</div>}
+                  {info && <div className="info">{info}</div>}
+                </form>
+                <div className="authswitch">
+                  Already have an account?{" "}
+                  <button className="textlink" onClick={() => { resetAuthMessages(); setAuthMode("login"); }}>Log in</button>
+                </div>
               </div>
-              <div className="field">
-                <label>Email</label>
-                <input type="email" placeholder="you@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+            </>
+          )}
+
+          {authMode === "sent" && (
+            <>
+              <header className="hero" style={{ margin: "20px 0 28px" }}>
+                <h1>Confirm your <em>email</em></h1>
+                <p>We've sent you a link to make sure this email is really yours. One click and you're in.</p>
+              </header>
+              <div className="panel">
+                <div className="mailicon">✉️</div>
+                <h2>Check your inbox</h2>
+                <div className="sub">Sent to {email || "your email"}.</div>
+                <p style={{ color: "#b3aea3", fontSize: 15, lineHeight: 1.6, margin: "4px 0 4px" }}>
+                  Open the email from Designer Finder and click <strong style={{ color: "#f4f1ea" }}>Confirm your email</strong>.
+                  Once you do, head to log in. (Check your spam folder if it's not there in a minute.)
+                </p>
+                {info && <div className="info">{info}</div>}
+                {authError && <div className="err">{authError}</div>}
+                <button className="ghostbtn" onClick={handleResend} disabled={authBusy}>
+                  {authBusy ? "Sending…" : "Resend link"}
+                </button>
+                <div className="authswitch">
+                  <button className="textlink" onClick={() => { resetAuthMessages(); setAuthMode("login"); }}>I've confirmed — log in</button>
+                </div>
+                <div className="authswitch" style={{ marginTop: 8 }}>
+                  <button className="textlink" onClick={() => { resetAuthMessages(); setAuthMode("register"); }}>← Use a different email</button>
+                </div>
               </div>
-              <button className="submit" type="submit">Enter the directory</button>
-              {loginError && <div className="err">{loginError}</div>}
-            </form>
-            <div className="privacy-note">
-              🔒 Your details stay in your browser for this session only — they are never
-              sent to our servers, stored, or shared.
-            </div>
-          </div>
+            </>
+          )}
+
+          {authMode === "login" && (
+            <>
+              <header className="hero" style={{ margin: "20px 0 28px" }}>
+                <h1>Welcome back to <em>Designer Finder</em></h1>
+                <p>Log in to access the directory of Melbourne's freelance design talent.</p>
+              </header>
+              <div className="panel">
+                <h2>Log in</h2>
+                <div className="sub">Enter your account details.</div>
+                <form onSubmit={handleLogin}>
+                  <div className="field">
+                    <label>Email</label>
+                    <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Password</label>
+                    <input type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  </div>
+                  <button className="submit" type="submit" disabled={authBusy}>
+                    {authBusy ? "Logging in…" : "Log in"}
+                  </button>
+                  {authError && <div className="err">{authError}</div>}
+                  {info && <div className="info">{info}</div>}
+                </form>
+                <div className="authswitch">
+                  New here?{" "}
+                  <button className="textlink" onClick={() => { resetAuthMessages(); setAuthMode("register"); }}>Create an account</button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : selected ? (
         // ---------- DESIGNER PROFILE PAGE ----------
@@ -360,10 +554,10 @@ function App() {
           <section className="security">
             <h4><span className="shield">🛡</span> Security &amp; Privacy</h4>
             <ul>
-              <li>We don't collect or store your personal login details — they stay in your browser for this session only.</li>
+              <li>Every account is email-verified — you confirm a link we email before you can sign in, so accounts can't be created with someone else's address.</li>
+              <li>Passwords and sessions are handled by Supabase Auth and never stored in our own app code.</li>
               <li>All traffic is encrypted over HTTPS between your browser, our app, and the database.</li>
               <li>Database credentials and API keys are stored as secure environment variables, never exposed in the app or its code.</li>
-              <li>We only store the public designer directory entries that users choose to publish — nothing more.</li>
             </ul>
             <div className="privacy-note">Designer Finder is built privacy-first: minimal data, no tracking, no selling.</div>
           </section>
